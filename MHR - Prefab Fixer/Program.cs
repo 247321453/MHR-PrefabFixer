@@ -3,22 +3,11 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace MHR___Prefab_Fixer
 {
     public static class Program
     {
-        public static void OpenExplorerLocation(string path)
-        {
-            ProcessStartInfo startInfo = new ProcessStartInfo
-            {
-                Arguments = path,
-                FileName = "explorer.exe"
-            };
-
-            Process.Start(startInfo);
-        }
 
         public static DirectoryInfo CreateFolder(params string[] path)
         {
@@ -32,28 +21,26 @@ namespace MHR___Prefab_Fixer
             return folder;
         }
 
-        [STAThreadAttribute]
+        public static string CurrentDirectory;
+
         private static void Main(string[] args)
         {
-            Console.WriteLine("Please select the folder");
-
-            var baseFolder = PickStaticFolder(Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
-
-            if (!baseFolder.Exists)
+            CurrentDirectory = Path.GetDirectoryName(typeof(Program).Assembly.Location);
+            string conversionFolder;
+            if (args.Length == 0)
             {
-                Environment.Exit(0);
+                conversionFolder = CurrentDirectory;
             }
+            else
+            {
+                conversionFolder = args[0];
+            }
+            Console.WriteLine("Current Folder:" + conversionFolder);
 
             //Create conversion folder
             //Copy over all files in same format to folder, and attempt conversion on the folder
-            var conversionBaseFolder = CreateFolder(Environment.CurrentDirectory, "Conversions");
-            var conversionFolder = conversionBaseFolder.CreateSubdirectory($"{DateTime.Now:yyyyMMdd_HHmmss}_{Path.GetFileName(baseFolder.FullName)}");
-            CloneDirectory(baseFolder, conversionFolder
-                ,
-                "*.pfb.17"
-                );
 
-            var prefabs = Directory.GetFiles(conversionFolder.FullName, "*.pfb.17", SearchOption.AllDirectories);
+            var prefabs = Directory.GetFiles(conversionFolder, "*.pfb.17", SearchOption.AllDirectories);
 
             //TU1 Conversion
             TUConversion(prefabs, "66 e1 a6 8f 06 6d d5 ed d1 07 28 e8 bb dd 1d 11", "66 e1 a6 8f 46 5f 73 52 d1 07 28 e8 bb dd 1d 11");
@@ -65,7 +52,6 @@ namespace MHR___Prefab_Fixer
             TUConversion(prefabs, "7F D7 47 7F D1 07", "71 7F C2 1A D1 07");
 
             //Open Folder Location with file explorer
-            OpenExplorerLocation(conversionFolder.FullName);
         }
 
         public static void TUConversion(string[] prefabs, string oldPrefabHex, string newPrefabHex)
@@ -87,6 +73,7 @@ namespace MHR___Prefab_Fixer
                     //Attempt conversion, and copy over
                     Console.WriteLine($"{prefab} contains old prefab bytes, will attempt to convert");
 
+                    //File.WriteAllBytes(prefab + ".bak", prefabBytes);
                     var newPrefab = ReplaceBytes(prefabBytes, oldPrefabBytes, newPrefabBytes);
 
                     File.WriteAllBytes(prefab, newPrefab);
@@ -164,23 +151,6 @@ namespace MHR___Prefab_Fixer
             }
         }
 
-        public static DirectoryInfo PickStaticFolder(params string[] path)
-        {
-            var folderPath = string.Empty;
-
-            var folderDialog = new CommonOpenFileDialog();
-            folderDialog.IsFolderPicker = true;
-            folderDialog.InitialDirectory = path.Length != 0 ? Path.Combine(path) : Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-
-            var dialogResult = folderDialog.ShowDialog();
-
-            if (dialogResult == CommonFileDialogResult.Ok)
-            {
-                folderPath = folderDialog.FileName;
-            }
-
-            return new DirectoryInfo(folderPath);
-        }
 
         private static byte[] ReplaceBytes(byte[] bytes, byte[] search, byte[] replace)
         {
